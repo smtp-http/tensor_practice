@@ -23,11 +23,12 @@ class AdditiveGaussianNoiseAutoencoder(object):
     def __init__(self,n_input, n_hidden, transfer_function=tf.nn.softplus,
                   optimizer= tf.train.AdamOptimizer(), scale=0.1):
         self.n_input = n_input
-        self.n_hiddden = n_hidden
+        self.n_hidden = n_hidden
         self.transfer = transfer_function
         self.scale =tf.placeholder(tf.float32)
         self.training_scale = scale
         network_weights = self._initialize_weights()
+
         self.weights = network_weights
  
         self.x = tf.placeholder(tf.float32,[None,self.n_input])
@@ -35,7 +36,7 @@ class AdditiveGaussianNoiseAutoencoder(object):
                            self.x +scale*tf.random_normal((n_input,)),
                            self.weights['w1']),self.weights['b1']))
         self.reconstruction = tf.add(tf.matmul(
-                                self.hidden, self.weight['w2']),self.weights['b2'])
+                                self.hidden, self.weights['w2']),self.weights['b2'])
  
  
 #接下来定义自编码器的损失函数，这里直接使用平方误差（Squared Error)作为cost，即用tf.subtract计算输出（self.reconstruction)与输入（self.x)之差，
@@ -51,9 +52,10 @@ class AdditiveGaussianNoiseAutoencoder(object):
     def  _initialize_weights(self):
         all_weights = dict()    #先创建一个名为all_weights的字典
         all_weights['w1'] = tf.Variable(xavier_init(self.n_input, self.n_hidden))
-        all_weights['b1'] = tf.Variable(tf.zeros([self.n_hiddden], dtype= tf.float32))
+        all_weights['b1'] = tf.Variable(tf.zeros([self.n_hidden], dtype= tf.float32))
         all_weights['w2'] = tf.Variable(tf.zeros([self.n_hidden,self.n_input], dtype=tf.float32))    #对于输出层self.reconstruction，因为没有使用激活函数，这里将w2,b2全部初始化为0即可。
         all_weights['b2'] = tf.Variable(tf.zeros([self.n_input], dtype=tf.float32))
+        return all_weights
     
     def partial_fit(self, X):     #函数partial_fit做的就是用一个batch数据进行训练并返回当前的损失cost。
         cost, opt = self.sess.run((self.cost, self.optimizer),    #让Session执行两个计算图的节点
@@ -85,19 +87,21 @@ class AdditiveGaussianNoiseAutoencoder(object):
     #而getBiases函数则是获取隐含层的偏置系数b1
     def getBiases(self):
         return self.sess.run(self.weights['b1'])
-    #至此，去噪自编码器的class就全部定义完了，包括神经网络的设计，权重的初始化，以及几个常用的成员函数（transform,generate等，它们属于计算图中的子图），接下来使用定义好的AGN自编码器在MNIST数据集上进行一些简单的性能测试，看看模型对数据的复原效果究竟如何。
-    mnist = input_data.read_data_sets('MNIST_data',one_hot=True)
+    
     #先在训练数据上fit出一个共用的Scaler，方法是先减去均值，再除以标准差，让数据变成0均值，且标准差为1的分布。我们直接使用sklearn.preprossing的StandardScaler这个类
-    def standerd_scale(X_train, X_test):
-        preprocessor = prep.StandardScaler().fit(X_train)
-        X_train = preprocessor.transform(X_train)
-        X_test = preprocessor.transform(X_test)
-        return X_test, X_train
+def standerd_scale(X_train, X_test):
+    preprocessor = prep.StandardScaler().fit(X_train)
+    X_train = preprocessor.transform(X_train)
+    X_test = preprocessor.transform(X_test)
+    return X_test, X_train
     #再定义一个获取随机block数据的函数：
-    def get_random_block_from_data(data, batch_size):
-        start_index = np.random.randint(0, len(data)-batch_size)
-        return data[start_index:(start_index+batch_size)]
- 
+def get_random_block_from_data(data, batch_size):
+    start_index = np.random.randint(0, len(data)-batch_size)
+    return data[start_index:(start_index+batch_size)]
+
+
+#至此，去噪自编码器的class就全部定义完了，包括神经网络的设计，权重的初始化，以及几个常用的成员函数（transform,generate等，它们属于计算图中的子图），接下来使用定义好的AGN自编码器在MNIST数据集上进行一些简单的性能测试，看看模型对数据的复原效果究竟如何。
+mnist = input_data.read_data_sets('MNIST_data',one_hot=True)
 X_train, X_test = standard_scale(mnist.train.images, mnist.test.images)
  
  
